@@ -6,6 +6,11 @@
 # Script to create fusion drives
 # Use the following command to delete the Fusion Drive Setup:
 # diskutil cs delete $CoreStorageUUID
+
+# ToDo:
+# Add test for machine types - we only want to create fusion drives on MacPros
+# Add test for existing fusion drives
+
 #--------------------------------------------------------------------------------------------------
 #-- Log - Echo messages with date and timestamp
 #--------------------------------------------------------------------------------------------------
@@ -27,6 +32,22 @@ Log ()
 }
 
 Log "-->"
+
+# Checking for existing CS UUIDs
+CoreStorageUUID=`diskutil cs list | awk '/Logical Volume Group/ {print $5}'`
+if [[ -z $CoreStorageUUID ]]; then
+	echo "No Core Storage"
+else
+	echo "Found CS LLVG: $CoreStorageUUID"
+	diskutil cs delete $CoreStorageUUID
+	if [[ $? == 0 ]]; then
+		Log "Success, Fusion Deleted!"
+	else
+		Log "Failed to remove Fusion Drive! Trying to erase each Disk!"
+		diskutil eraseDisk HFS+ D0 disk0
+		diskutil eraseDisk HFS+ D1 disk1
+	fi
+fi
 
 
 # Reset Variables
@@ -62,6 +83,11 @@ for i in $DiskList; do
 done
 
 Log "There are ${#DiskListArray[@]} internal disks in the DiskListArray"
+
+if [[ "${#DiskListArray[@]}" < 2 ]];then
+	Log "Not enough disks to make fusion drive!"
+	exit 0
+fi
 
 # Get disk IDs for ssd and platter, set into variables for SSD and HDD
 for i in "${DiskListArray[@]}"; do
